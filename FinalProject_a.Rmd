@@ -1,0 +1,554 @@
+---
+title: "**RECIPE FOR SUCCESS**"
+subtitle: "**THE IMPACT OF DIFFERENT MESSAGING STRATEGIES ON SAAS DEMO SIGNUPS**"
+author: "Laura Lubben - Francesca Scipioni - Richard Lumpi"
+date: "14/12/2024"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+
+```{r, include=FALSE}
+# libraries
+library(data.table)
+library(knitr)
+library(dplyr)
+library(stargazer)
+library(sandwich)
+library(ggplot2)
+library(patchwork)
+library(lmtest)
+library(kableExtra)
+```
+
+
+```{r, include=FALSE}
+# Baseline Data
+
+# Control Views: 28,565
+# Treatment Views: 28,884
+# Total: 57,449
+
+# CTR control 0.2486% (71 clicks)
+# Sign up control 0.0420% (12 submissions)
+
+# CTR treat 0.3566% (103 clicks)
+# Sign up treat 0.0485% (14 submissions)
+
+d_baseline <- data.table(
+  id = 1:57449
+)
+
+d_baseline[1:28565, D := 'Control']
+d_baseline[(28565+1):57449, D := 'Treatment']
+
+d_baseline[1:71, click := 1]
+d_baseline[(71+1):28565, click := 0]
+
+d_baseline[(28565+1):(28565+103), click := 1]
+d_baseline[(28565+103+1):57449, click := 0]
+
+d_baseline[1:12, sign_up := 1]
+d_baseline[(12+1):28565, sign_up := 0]
+
+d_baseline[(28565+1):(28565+14), sign_up := 1]
+d_baseline[(28565+14+1):57449, sign_up := 0]
+
+```
+
+```{r, include=FALSE}
+# Randomization check
+
+n_control = nrow(d_baseline[D == 'Control'])
+n_treat = nrow(d_baseline[D == 'Treatment'])
+
+total <- n_control + n_treat
+
+
+control_perc <- (n_control / total) * 100
+treat_perc <- (n_treat / total) * 100
+
+# Randomization table
+randomization_table <- data.frame(
+  Group = c("Control", "Treatment"),
+  Observations = c(n_control, n_treat),
+  Percentage = c(control_perc, treat_perc)
+)
+kable(randomization_table)
+```
+
+
+```{r, include=FALSE}
+
+# Create a summary table
+summary_table_baseline <- d_baseline %>%
+  group_by(D) %>%
+  summarize(
+    total_rows = n(),
+    clicks = sum(click == 1, na.rm = TRUE),
+    signups = sum(sign_up == 1, na.rm = TRUE)
+  )
+
+# Print the summary table
+# kable(summary_table_baseline)
+```
+
+
+```{r, include=FALSE}
+model_click_baseline <- lm(click ~ D, data = d_baseline)
+model_click_baseline$vcovHC_ <- vcovHC(model_click_baseline)
+# summary(model_click_baseline)
+```
+
+```{r, include=FALSE}
+model_sign_up_baseline <- lm(sign_up ~ D, data = d_baseline)
+model_sign_up_baseline$vcovHC_ <- vcovHC(model_sign_up_baseline)
+# summary(model_sign_up_baseline)
+```
+
+
+```{r, include=FALSE}
+# Adjusted Data
+
+# 33,11% Clicked on Login Straight Away
+
+# Control Views: 19,107
+# Treatment Views: 19,321
+# Total: 38,428
+
+# CTR control 0.3716% (71 clicks)
+# Sign up control 0.0628% (12 submissions)
+
+# CTR treat 0.2433% (47 clicks) - We adjusted the clicks as there was a spike
+# Sign up treat 0.0725% (14 submissions)
+
+d_adjusted <- data.table(
+  id = 1:38428
+)
+
+d_adjusted[1:19107, D := 'Control']
+d_adjusted[(19107+1):38428, D := 'Treatment']
+
+d_adjusted[1:71, click := 1]
+d_adjusted[(71+1):19107, click := 0]
+
+d_adjusted[(19107+1):(19107+47), click := 1]
+d_adjusted[(19107+47+1):38428, click := 0]
+
+d_adjusted[1:12, sign_up := 1]
+d_adjusted[(12+1):19107, sign_up := 0]
+
+d_adjusted[(19107+1):(19107+14), sign_up := 1]
+d_adjusted[(19107+14+1):38428, sign_up := 0]
+
+```
+
+
+```{r, include=FALSE}
+# Create a summary table
+summary_table_adjusted <- d_adjusted %>%
+  group_by(D) %>%
+  summarize(
+    total_rows = n(),
+    clicks = sum(click == 1, na.rm = TRUE),
+    signups = sum(sign_up == 1, na.rm = TRUE)
+  )
+
+# Print the summary table
+# kable(summary_table_adjusted)
+```
+
+```{r, include=FALSE}
+model_click_adjusted <- lm(click ~ D, data = d_adjusted)
+model_click_adjusted$vcovHC_ <- vcovHC(model_click_adjusted)
+# summary(model_click_adjusted)
+```
+
+```{r, include=FALSE}
+model_sign_up_adjusted <- lm(sign_up ~ D, data = d_adjusted)
+model_sign_up_adjusted$vcovHC_ <- vcovHC(model_sign_up_adjusted)
+# summary(model_sign_up_adjusted)
+```
+
+
+
+## Abstract
+
+This study examines whether tailoring the messaging on DineLogic’s homepage from accountant-focused copy to restaurant-operator-focused copy increases user engagement. Employing a between-subjects A/B test, visitors to the site were randomly assigned to see either the current accountant-targeted messaging or revised content emphasizing the product’s operational benefits. The primary metrics were the click-through rate (CTR) on the “Get a demo” button and the conversion rate for demo sign-ups. Initial results indicated a statistically significant CTR increase for the treatment group. However, after adjusting for bot-influenced outliers, the revised copy showed no meaningful improvement in CTR or demo sign-ups. These findings suggest that while strategically tailored messaging may appeal to certain audiences, a simple copy change alone is insufficient to produce substantial gains in downstream conversions. The study’s limitations—session-level data, potential residual bot activity, and low sign-up volumes—highlight the need for more comprehensive strategies and robust testing designs to effectively enhance user behavior and drive conversions.
+
+
+## Introduction
+
+This project investigates whether changing the messaging on the DineLogic website homepage increases click-through rates and demo sign-ups. DineLogic (https://www.DineLogic.com/) is a SaaS product for restaurants that is used by owners, general managers, chefs and accountants. The experiment tests different homepage messaging to determine which resonates most with different types of visitors and improves click-through and demo sign-ups. Due to high setup costs and no free trial, potential customers rely on a demo to evaluate the product. 
+
+Drawing from consumer psychology, the experiment hypothesizes that tailored messaging for high-awareness clients, who are actively seeking solutions, will enhance engagement. By emphasizing the product’s unique value, such as automating inventory management for restaurant operators, the revised copy is expected to influence user behavior through psychological synchrony and heuristic decision-making.
+
+The experiment utilizes a between-subjects A/B test design, where website visitors are randomly assigned to view either the current accountant-targeted copy or a revised version aimed at restaurant operators. The primary metrics for evaluation are the click-through rate (CTR) on the “Get a demo” button and the conversion rate of completing the demo sign-up form. The experiment will analyze these metrics to determine which version of the homepage performs better, with the goal of identifying the messaging strategy that drives more demo sign-ups for DineLogic.
+
+## Literature Review
+
+### Messaging Influence Theory
+
+Understanding how variations in homepage messaging shape user engagement and conversion outcomes can be grounded in well-established principles of consumer psychology and marketing theory. In digital settings, where potential customers lack direct experiential evidence of product quality, extrinsic cues—such as language, framing, and tone—play an outsized role in guiding perceptions and decision-making (Ho et al., 2019). For visitors who are already aware of their needs and are actively seeking solutions, tailored messaging that emphasizes unique value propositions can help establish psychological synchrony. This alignment between the visitor’s cognitive frame and the presented content fosters trust, encourages heuristic decision-making, and ultimately improves conversion rates (Marks, 2024). By integrating positive affective content into messaging strategies, brands can enhance emotional resonance, a factor Ludwig et al. (2019) identified as critical for boosting both click-through and sign-up rates.
+
+
+### A/B Testing
+
+A/B testing has become a widely adopted practice in online marketing, advertising, and website optimization. Advances in technology have significantly reduced the difficulty of conducting such experiments. However, the ease of implementation often leads to a lack of rigor in execution, particularly with regard to statistical power. Misleading results may drive investments in website features or user journey enhancements that fail to yield any measurable uplift.This issue is exacerbated by the fact that most website changes tend to produce small effects. Additional challenges include problems with multiple testing, the premature stopping of experiments when positive effects are observed, and the phenomenon of regression to the mean once the "novelty effect" diminishes (Goodson, 2014).
+
+Berman and Van de Bulte (2022) further investigate the issue of false discoveries in A/B testing, attributing it primarily to the high proportion of true null hypotheses in website experiments. This contrasts with implementation and analytical deficiencies, such as failure to account for Type I and Type II errors. Their findings suggest that even with rigorous power analyses, there remains a substantial risk of failing to replicate initial results when implementing changes on the website. 
+
+### Concept under investigation
+
+The experiment investigates the impact of copywriting on the likelihood of clicking the "Get a Demo" button and the encouragement of completing a demo sign-up, focusing on key sales funnel metrics: click-through rate (CTR) and conversion rate. CTR measures user engagement with a call-to-action (CTA). Richardson et al. (2007) defined CTR as the probability of an ad being clicked once viewed, making it relevant for our investigation of demo sign-ups. Similarly, McDowell et al. (2016) explored conversion rate in web design and e-commerce, defining it as the percentage of visitors who complete a purchase.
+
+For our experiment, we define CTR as the percentage of visitors who click the “Get a demo” button and conversion rate as the percentage who complete the demo sign-up form. These metrics will allow us to measure the effectiveness of different messaging strategies in influencing user behavior at a key stage of the overall sales funnel.
+
+## Experimental Design
+
+This experiment will use a between-subjects A/B test design, where participants are randomly assigned to either the control or treatment group without knowing which version they see. The control group will view the current homepage copy, while the treatment group will see the modified version. The primary outcome we are focusing on is the CTR which is directly presented with the changed copy - referring to as the experiment. Further, we measure if there is a noticeable change in the demo sign up - the encouragement - which is one step further down the customer acquistion funnel and therefore of interest to the company.
+
+### Hypothesis
+
+The hypothesis being tested is that a high-awareness-focused copy, combined with a tone tailored to different customer subgroups, will influence click-through and demo sign-up rates on DineLogic’s website. The proposed mechanism suggests that high-awareness customers respond better to solution-oriented content, and using function words that resonate with specific subgroups will influence decision-making. Additionally, if one copy leads to a meaningful improvement, it will help identify which subgroup of customers comes through the website. While company research indicates that most visitors are high-awareness due to the niche restaurant-focused product, data limitations prevent identifying the exact subgroup (e.g., chefs, accountants, business owners) visiting the site. Experimentally testing which copy resonates best with these visitors is of interest, but while a causal link between the copy and outcomes can be established, the assumed mechanism cannot be definitively confirmed due to an inability to directly measure customer awareness or group affiliation.
+
+In this experiment, the control will consist of the existing copy and layout currently used on the landing page. This includes the headline, text block, and “Get a Demo” call-to-action (CTA) button. The baseline copy targets an accountant audience in tone and content.
+
+The experimental treatment will adjust key aspects of the page: The experimental condition features changes to the headline and body text of the banner, tailored specifically to restaurant operators. The copy for the "Get a demo" banner was developed in collaboration with the Design and Product Marketing teams (Figure 1).
+
+Formally we test the following two hypothesis:
+
+\begin{quote}
+  \textit{1) A copy targeting restaurant operators has the same click-through rate as a copy targeting accountants; against the alternative of a different effect.}
+\end{quote}
+
+\begin{quote}
+  \textit{2) A copy targeting restaurant operators encourages the same demo sign-up rate as a copy targeting accountants; against the alternative of a different effect.}
+\end{quote}
+
+We do not test against a one sided hypothesis, as there is no prior internal company research nor experiments in the same context available to infer a direction. However, for the company to justify the cost of changing the implementation, only increases are relevant.
+
+```{r, fig.show='hold', out.width="50%", echo=FALSE, fig.cap="Left panel: Control Copy with Accounting Focus. Right panel: Treatment Copy with Operations Focus"}
+include_graphics(c("Control_edited.jpg", "Treatment_edited.jpg"))
+```
+\newpage
+### Recruitment and Data Collection
+
+The participants in this experiment were visitors to the DineLogic.com website, which receives roughly 55,000 visitors per month. The experiment ran from October 21 to November 18, ultimately collecting a total of 57,449 observations.
+
+Using HubSpot, a customer relationship management (CRM) platform, we randomized website visitors between the control and treatment groups. The CRM also allowed us to measure the click-through rate (CTR) on the “Get a demo” button, our primary outcome variable, as well as track demo sign-up completions. Although we were unable to download granular session-level data directly, we derived session-level estimates using aggregated data on page views and click-throughs.
+
+Of the 57,449 recorded sessions, 28,565 (49.72%) were shown the control copy, while 28,884 (50.28%) were shown the treatment copy (Figure 2).
+
+```{r, fig.show='hold', out.width="100%", echo=FALSE, fig.cap="Randomization: Page views for the Accounting Copy (orange line) and Operations Copy (blue line)"}
+include_graphics(c("randomization.png"))
+```
+
+```{r, fig.show='hold', out.width="50%", echo=FALSE, fig.cap="Click-through Rates for the Control (Left Panel) and Treatment (Right Panel) Copy"}
+include_graphics(c("demo a.png", "demo b.png"))
+```
+The first step in enhancing the validity of our results was to exclude sessions where users visited the homepage solely to log into our application—indicating activity by existing clients or staff rather than potential new leads. Due to system and data collection limitations, we could not exclude these sessions at the individual level. However, because visitors were randomly assigned to either the Control or Treatment condition, we expect any existing clients or staff to be evenly distributed across both groups.
+
+To estimate the impact of these login-only sessions, we leveraged Google Analytics, which the product marketing team had configured to track a “login_click” event. This event counts how many people land on the homepage and immediately click the login button. Over the experiment’s duration, there were 19,021 such sessions, representing approximately 33% of all homepage views. To adjust for these sessions, we applied their proportional share to both the Control and Treatment groups, reducing the counts of visitors who did not click the “Get a demo” button by this same proportion, as shown in Table 1.
+
+
+```{r, echo=FALSE}
+# Define your variables
+all_sessions <- 57449
+login_click <- 19021
+
+demo_a_sessions <- 28565
+demo_b_sessions <- 28884
+
+login_click_over_all_sessions <- login_click / all_sessions
+demo_a_adjusted_sessions <- (1 - login_click_over_all_sessions) * demo_a_sessions
+demo_b_adjusted_sessions <- (1 - login_click_over_all_sessions) * demo_b_sessions
+
+#create table
+results_table <- data.frame(
+  Metric = c("All Sessions", 
+             "Login Clicks", 
+             "Login Click Rate", 
+             "Control Sessions", 
+             "Treatment Sessions", 
+             "Adjusted Control Sessions", 
+             "Adjusted Treatment Sessions"),
+  Value = c(all_sessions, 
+            login_click, 
+            round(login_click_over_all_sessions, 2), 
+            demo_a_sessions, 
+            demo_b_sessions, 
+            demo_a_adjusted_sessions, 
+            demo_b_adjusted_sessions)
+)
+
+# Use knitr::kable and kableExtra for LaTeX/PDF formatting
+results_table %>%
+  kable(
+    "latex",
+    booktabs = TRUE,
+    caption = "Sessions and Adjusted Metrics"
+  ) %>%
+  kable_styling(latex_options = c("hold_position")) %>%
+  row_spec(3, hline_after = TRUE) 
+```
+
+After applying the login adjustment, we then addressed anomalies in the click data. Specifically, the Control copy maintained between 0 and 6 "Get a demo" clicks per day during the study period (Figure 3), while the Treatment copy followed a similar pattern — except for an unusual spike on November 8, 2024. This spike did not correlate with any discernible user behavior or marketing activity. Following an investigation with the product marketing team, we attributed this increase to bot activity. To mitigate this distortion, we replaced the anomalous value with the average of the previous and subsequent days. This conservative approach minimized measurement inaccuracies and ensured a more reliable comparison of the Control and Treatment conditions.
+
+The collected data and adjustments are summarized in Tables 2 and 3, respectively. Table 2 presents the original, unadjusted counts of sessions, clicks on the “Get a demo” button, and resulting sign-ups, measured before applying any adjustments. In these baseline numbers, the Treatment copy showed a notably higher count of clicks (103) compared to the Control copy (71).
+
+After applying the login_click adjustment to remove sessions that were solely for logging into the application, and correcting for the bot-induced spike, we derived the adjusted values shown in Table 3. In this adjusted table, the Treatment group’s clicks decreased substantially from 103 down to 47, reflecting a more accurate representation of genuine user interest rather than artificial inflation. These adjustments provide a clearer, more reliable comparison of the Control and Treatment groups’ performance. 
+
+```{r, echo=FALSE}
+summary_table_baseline %>%
+  kable(
+    "latex", 
+    booktabs = TRUE, 
+    caption = "Baseline (Unadjusted) Results",
+    col.names = c("Group", "Sessions (N)", "Demo Clicks (N)", "Demo Sign-ups (N)")
+  ) %>%
+  kable_styling(latex_options = c("hold_position")) %>%
+  row_spec(3, hline_after = TRUE)
+```
+
+```{r, echo=FALSE}
+summary_table_adjusted %>%
+  kable(
+    "latex", 
+    booktabs = TRUE, 
+    caption = "Adjusted Results (Accounting for Logins and Bot Activity)",
+    col.names = c("Group", "Adjusted Sessions (N)", "Demo Clicks (N)", "Demo Sign-ups (N)")
+  ) %>%
+  kable_styling(latex_options = c("hold_position")) %>%
+  row_spec(3, hline_after = TRUE)
+```
+
+
+
+## Analysis
+
+To investigate the average treatment effect of the treatment copy and get a measure of uncertainty we apply regression analysis. All models utilize robust standard errors, which helps to account for heteroscedasticity and provides more reliable estimates. We estimate the following model:
+
+$$ ctr_i = \alpha + \beta * D_i + \epsilon_i$$
+
+where $\widehat{ctr_i}$ measures the average click-through rate for a subject visiting the website and the dummy variable $D_i$ is set to one if the subject sees the operations based copy (Treatment) and to zero for the current accounting focused copy. The estimate for the coefficient $\hat{\beta}$ estimates the difference between potential outcomes of click through rates for site visitors seeing the treatment copy compared to visitors seeing the control copy.
+
+Furthermore, to estimate the encouragement effect of the copy change on demo sign-ups we estimate the following model:
+
+$$ signup_i = \alpha + \delta * D_i + \epsilon_i$$
+
+where $\widehat{signup_i}$ measures the average demo sign-ups for a subject visiting the website and the dummy variable $D_i$ is set to one if the subject sees the operations based copy (Treatment) and to zero for the current accounting focused copy. Equivalently, the estimate for the coefficient $\hat{\delta}$ estimates the difference between potential outcomes of demo sign-ups for site visitors who have previously seen the treatment copy compared to visitors who have seen the control copy.
+
+```{r, results='asis', warning=FALSE, echo=FALSE}
+stargazer(model_click_baseline, 
+          model_sign_up_baseline, 
+          se=list(sqrt(diag(model_click_baseline$vcovHC_)),
+                  sqrt(diag(model_sign_up_baseline$vcovHC_))
+                  ),
+          digits = 5,
+          title = "Causal Effect Estimates for Copy Change - Baseline",
+          dep.var.labels = c("CTR", "Sign Up"),
+          covariate.labels = c("Operations Copy"),
+          header=FALSE,
+          notes = "Robust standard errors reported in parentheses."
+          )
+```
+
+The baseline model (Table 4) which uses all observed sessions indicates a significant increase in click-through rate of 0.11 percentage points compared to the 0.25% propensity of clicking the "Get a demo" button in the control group. For a more accurate picture we estimate the model where we 1) adjust for the sessions where visitors went straight to login and 2) exclude the subjects that we suspect are bots. We adjusted the day 11/8 in the treatment group by taking the average of days immediately prior and immediately post (11/7 and 11/9). We estimate the model as described above with the adjusted data set as reported in Table 5.
+
+```{r, results='asis', warning=FALSE, echo=FALSE}
+stargazer(model_click_adjusted,
+          model_sign_up_adjusted,
+          se=list(sqrt(diag(model_click_adjusted$vcovHC_)),
+                  sqrt(diag(model_sign_up_adjusted$vcovHC_))
+                  ),
+          digits = 5,
+          title = "Causal Effect Estimates for Copy Change - Adjusted",
+          dep.var.labels = c("CTR", "Sign Up"),
+          covariate.labels = c("Operations Copy"),
+          header=FALSE,
+          notes = "Robust standard errors reported in parentheses."
+          )
+```
+
+The adjusted model reveals a reversal in the direction of the result, suggesting that the control copy resonates more effectively. More importantly, a comparison between the baseline and the adjusted model highlights the extent to which the estimates are susceptible to anomalous user behavior from a small subset of site visitors, despite the large overall sample size.
+
+For the demo sign-up rate, the baseline model indicates that 0.042% of site visitors complete the demo sign-up process, whereas the adjusted model shows an increase to 0.063%. However, in both cases, the differences compared to the treatment group are not statistically significant.
+
+### Power
+
+Prior simulation analysis suggests that, given the observed sample size, we have sufficient statistical power to detect average treatment effects (ATE) on the click-through rate that are meaningful for the company and justify further investment in revising copy. Our initial assumption was a baseline click-through rate of 1%, with an anticipated increase of 0.5 percentage points. In this simulation we observe a statistical power that is approaching 100% for our sample size. Although the observed baseline click-through rate was substantially lower than the initial estimate, the relative effect size is close to 50%, despite being negative for the specific copy tested. Obstacles persist concerning the demo sign-up effect in this context; however, the statistical power for the click-through rate indicates that the experiment effectively addresses our primary objective. For further details, refer to the power analysis provided in the previous handout.
+
+## Discussion
+
+This experiment attempted to determine whether an operations-focused copy change could significantly improve click-through rates (CTR) and demo sign-ups. Initial findings suggested a statistically significant increase in CTR for the treatment group. After excluding data likely influenced by bot activity, the adjusted analysis revealed a slight decrease in CTR for the treatment group and no meaningful changes in sign-up rates. These results suggest that the observed gains in CTR may have been influenced by anomalies (likely bot activity) rather than a true causal effect.
+
+The relatively small CTR and demo sign-ups highlight the challenges of influencing user behavior with just copy changes and the difficulties with reproducing effects that are highly susceptible to outlier behavior. While the accounting-focused copy appears to resonate better with website visitors, it does not appear to drive meaningful improvements in downstream conversions like demo sign-ups (considerably bigger sample sizes are required to credibly investigate the alternative hypothesis). In order to move user behavior significantly and ultimately convert site visitors into paying customers, a more comprehensive approach to improving user engagement and conversion rates is likely necessary, with copy changes being one piece of the puzzle. With only 0.063% of site visitors signing up for a demo, other customer acquisition channels, for example outbound sales activities or affiliate marketing, might demonstrate a better return on investment.
+
+The study is subject to several notable limitations. First, while efforts were made to adjust for bot activity, there remains the possibility of residual effects that could influence the results. Second, the analysis was conducted at the session level rather than the user level, meaning that a single site visitor could have multiple sessions and potentially be exposed to both versions, introducing the risk of unaccounted for spillover effects. Furthermore, repeat visitors, who may have been exposed to both the treatment and control copies, are likely to exhibit different propensities to click the demo button or complete the sign-up process compared to first-time visitors. To control for spillover bias and enable deeper investigation into repeat customer behavior, it is important to identify methods for linking session data to individual users. Third, due to time and resource constraints within the company, we were unable to effectively join information from two distinct systems (HubSpot and Google Analytics) that could have facilitated the inclusions of covariates like device type, location, or time of visit, thereby limiting our ability to improve precision and investigate heterogeneous treatment effects. Finally, the low number of demo sign-ups reduces the statistical power to detect meaningful changes further down in the sales funnel. Given the specific context of a restaurant software product, embedding the copy changes into an existing sales funnel, the generalizability of the findings to other contexts is limited. 
+
+\newpage
+## References
+
+- Marks, K. (2024, June 14). Conversion copywriting: The science of using words to compel action. Tiller Digital. https://tillerdigital.com/blog/conversion-copywriting-the-science-of-using-words-to-compel-action/
+- Ho, H. C., Chiu, C. L., Jiang, D., Shen, J., & Xu, H. (2019). Inuence of language of packaging labels on consumers’ buying preferences. Journal of Food Products Marketing, 25(4), 435-461.
+- Wang, Y. J., Minor, M. S., & Wei, J. (2011). Aesthetics and the online shopping environment: Understanding consumer responses. Journal of retailing, 87(1), 46-58.
+- Ludwig, S., De Ruyter, K., Friedman, M., Brüggen, E. C., Wetzels, M., & Pfann, G. (2013). More than words: The influence of affective content and linguistic style matches in online reviews on conversion rates. Journal of marketing, 77(1), 87-103
+- McDowell, W. C., Wilson, R. C., & Kile Jr, C. O. (2016). An examination of retail website design and conversion rate. Journal of Business Research, 69(11), 4837-4842.
+- Richardson, M., Dominowska, E., & Ragno, R. (2007, May). Predicting clicks: estimating the click-through rate for new ads. In Proceedings of the 16th international conference on World Wide Web (pp. 521-530).
+- Berman, R., & Van den Bulte, C. (2022). False discovery in A/B testing. Management Science, 68(9), 6762-6782.
+- Goodson, M. (2014). Most winning A/B test results are illusory. Whitepaper, Qubit, Jan.
+
+\newpage
+## Appendix
+
+### A. Code used in Data Analysis
+
+```{r, include=TRUE}
+# Baseline Data
+
+# Control Views: 28,565
+# Treatment Views: 28,884
+# Total: 57,449
+
+# CTR control 0.2486% (71 clicks)
+# Sign up control 0.0420% (12 submissions)
+
+# CTR treat 0.3566% (103 clicks)
+# Sign up treat 0.0485% (14 submissions)
+
+d_baseline <- data.table(
+  id = 1:57449
+)
+
+d_baseline[1:28565, D := 'Control']
+d_baseline[(28565+1):57449, D := 'Treatment']
+
+d_baseline[1:71, click := 1]
+d_baseline[(71+1):28565, click := 0]
+
+d_baseline[(28565+1):(28565+103), click := 1]
+d_baseline[(28565+103+1):57449, click := 0]
+
+d_baseline[1:12, sign_up := 1]
+d_baseline[(12+1):28565, sign_up := 0]
+
+d_baseline[(28565+1):(28565+14), sign_up := 1]
+d_baseline[(28565+14+1):57449, sign_up := 0]
+
+```
+
+```{r, include=TRUE}
+# Randomization check
+
+n_control = nrow(d_baseline[D == 'Control'])
+n_treat = nrow(d_baseline[D == 'Treatment'])
+
+total <- n_control + n_treat
+
+
+control_perc <- (n_control / total) * 100
+treat_perc <- (n_treat / total) * 100
+
+# Randomization table
+randomization_table <- data.frame(
+  Group = c("Control", "Treatment"),
+  Observations = c(n_control, n_treat),
+  Percentage = c(control_perc, treat_perc)
+)
+kable(randomization_table)
+```
+
+
+```{r, include=TRUE}
+# Create a summary table
+summary_table_baseline <- d_baseline %>%
+  group_by(D) %>%
+  summarize(
+    total_rows = n(),
+    clicks = sum(click == 1, na.rm = TRUE),
+    signups = sum(sign_up == 1, na.rm = TRUE)
+  )
+
+# Print the summary table
+kable(summary_table_baseline)
+```
+
+
+```{r, include=TRUE}
+model_click_baseline <- lm(click ~ D, data = d_baseline)
+model_click_baseline$vcovHC_ <- vcovHC(model_click_baseline)
+summary(model_click_baseline)
+```
+
+```{r, include=TRUE}
+model_sign_up_baseline <- lm(sign_up ~ D, data = d_baseline)
+model_sign_up_baseline$vcovHC_ <- vcovHC(model_sign_up_baseline)
+summary(model_sign_up_baseline)
+```
+
+
+```{r, include=TRUE}
+# Adjusted Data
+
+# 33,11% Clicked on Login Straight Away
+
+# Control Views: 19,107
+# Treatment Views: 19,321
+# Total: 38,428
+
+# CTR control 0.3716% (71 clicks)
+# Sign up control 0.0628% (12 submissions)
+
+# CTR treat 0.2433% (47 clicks) - We adjusted the clicks as there was a spike
+# Sign up treat 0.0725% (14 submissions)
+
+d_adjusted <- data.table(
+  id = 1:38428
+)
+
+d_adjusted[1:19107, D := 'Control']
+d_adjusted[(19107+1):38428, D := 'Treatment']
+
+d_adjusted[1:71, click := 1]
+d_adjusted[(71+1):19107, click := 0]
+
+d_adjusted[(19107+1):(19107+47), click := 1]
+d_adjusted[(19107+47+1):38428, click := 0]
+
+d_adjusted[1:12, sign_up := 1]
+d_adjusted[(12+1):19107, sign_up := 0]
+
+d_adjusted[(19107+1):(19107+14), sign_up := 1]
+d_adjusted[(19107+14+1):38428, sign_up := 0]
+
+```
+
+
+```{r, include=TRUE}
+# Create a summary table
+summary_table_adjusted <- d_adjusted %>%
+  group_by(D) %>%
+  summarize(
+    total_rows = n(),
+    clicks = sum(click == 1, na.rm = TRUE),
+    signups = sum(sign_up == 1, na.rm = TRUE)
+  )
+
+# Print the summary table
+kable(summary_table_adjusted)
+```
+
+```{r, include=TRUE}
+model_click_adjusted <- lm(click ~ D, data = d_adjusted)
+model_click_adjusted$vcovHC_ <- vcovHC(model_click_adjusted)
+summary(model_click_adjusted)
+```
+
+```{r, include=TRUE}
+model_sign_up_adjusted <- lm(sign_up ~ D, data = d_adjusted)
+model_sign_up_adjusted$vcovHC_ <- vcovHC(model_sign_up_adjusted)
+summary(model_sign_up_adjusted)
+```
+
