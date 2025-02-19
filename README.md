@@ -1,5 +1,5 @@
 # Recipe_for_success
-## The impact of different messaging strategies on SaaS demo signups
+The impact of different messaging strategies on SaaS demo signups
 
 Francesca Scipioni, Richard Lumpi, and Laura Lubben <br>
 UC Berkeley School of Information
